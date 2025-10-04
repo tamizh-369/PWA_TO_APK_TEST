@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neon Tic Tac Toe CRT</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    /* CRT Overlay and Neon styles */
+    @keyframes neon-glow {
+      0%, 100% {
+        text-shadow:
+          0 0 5px #0ff,
+          0 0 10px #0ff,
+          0 0 20px #0ff,
+          0 0 40px #0ff,
+          0 0 60px #0ff,
+          0 0 80px #0ff,
+          0 0 90px #0ff;
+        color: #0ff;
+      }
+      50% {
+        text-shadow:
+          0 0 10px #0ff,
+          0 0 20px #0ff,
+          0 0 40px #0ff,
+          0 0 60px #0ff,
+          0 0 80px #0ff,
+          0 0 100px #0ff,
+          0 0 140px #0ff;
+        color: #aff;
+      }
+    }
+
+    body {
+      background: black;
+      color: #0ff;
+      font-family: "Courier New", Courier, monospace;
+      text-align: center;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 3rem;
+      color: #0ff;
+      animation: neon-glow 2s infinite;
+      margin-bottom: 1rem;
+    }
+
+    .game-container {
+      background: #002222;
+      border: 4px solid #0ff;
+      border-radius: 20px;
+      padding: 20px;
+      width: 320px;
+      box-shadow:
+        0 0 30px #0ff,
+        inset 0 0 20px #0ff;
+      filter: contrast(1.2) brightness(1.4);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* CRT Scanline effect overlay */
+    .crt-overlay {
+      pointer-events: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 20px;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 255, 255, 0.08),
+          rgba(0, 255, 255, 0.08) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+      mix-blend-mode: screen;
+      z-index: 10;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 90px);
+      grid-template-rows: repeat(3, 90px);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .cell {
+      background: #003333;
+      border: 2px solid #0ff;
+      border-radius: 12px;
+      font-size: 3.5rem;
+      color: #0ff;
+      cursor: pointer;
+      box-shadow:
+        0 0 10px #0ff,
+        inset 0 0 10px #0ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.3s ease;
+      user-select: none;
+    }
+
+    .cell:hover {
+      background: #005555;
+    }
+
+    .scoreboard {
+      color: #0ff;
+      font-size: 1.3rem;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px #0ff;
+    }
+
+    #message {
+      font-size: 1.5rem;
+      margin: 15px 0;
+      min-height: 1.8em;
+      color: #0ff;
+      text-shadow:
+        0 0 10px #0ff,
+        0 0 20px #0ff;
+    }
+
+    button {
+      background: black;
+      color: #0ff;
+      border: 2px solid #0ff;
+      border-radius: 12px;
+      padding: 10px 20px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      font-family: "Courier New", monospace;
+      box-shadow:
+        0 0 10px #0ff;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background: #0ff;
+      color: black;
+      box-shadow:
+        0 0 20px #0ff,
+        inset 0 0 30px #0ff;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>Neon Tic Tac Toe CRT</h1>
+  <div class="game-container" role="main" aria-label="Tic Tac Toe game">
+    <div class="board" id="board" aria-live="polite" aria-atomic="true">
+      <!-- JS will create cells -->
+    </div>
+    <div class="scoreboard" id="scoreboard">
+      Player X: 0 | Player O: 0 | Draws: 0
+    </div>
+    <div id="message" aria-live="assertive"></div>
+    <button id="restartButton" aria-label="Restart Game">Restart Game</button>
+    <div class="crt-overlay"></div>
+  </div>
+
+  <script>
+    const board = document.getElementById('board');
+    const messageElem = document.getElementById('message');
+    const restartButton = document.getElementById('restartButton');
+    const scoreboard = document.getElementById('scoreboard');
+
+    let boardState = ['', '', '', '', '', '', '', '', ''];
+    let currentPlayer = 'X';
+    let scores = {X: 0, O: 0, draws: 0};
+    let gameActive = true;
+
+    const winConditions = [
+      [0,1,2], [3,4,5], [6,7,8],  // rows
+      [0,3,6], [1,4,7], [2,5,8],  // cols
+      [0,4,8], [2,4,6]            // diagonals
+    ];
+
+    function createBoard() {
+      board.innerHTML = '';
+      for(let i=0; i<9; i++) {
+        const cell = document.createElement('button');
+        cell.classList.add('cell');
+        cell.setAttribute('data-index', i);
+        cell.setAttribute('aria-label', `Cell ${i+1}`);
+        cell.addEventListener('click', cellClick);
+        board.appendChild(cell);
+      }
+    }
+
+    function cellClick(e) {
+      const index = e.target.getAttribute('data-index');
+      if (boardState[index] !== '' || !gameActive) return;
+      boardState[index] = currentPlayer;
+      e.target.textContent = currentPlayer;
+      e.target.style.color = currentPlayer === 'X' ? '#0ff' : '#aff';
+      if (checkWin()) {
+        scores[currentPlayer]++;
+        updateScoreboard();
+        messageElem.textContent = `Player ${currentPlayer} Wins!`;
+        gameActive = false;
+      } else if (boardState.every(cell => cell !== '')) {
+        scores.draws++;
+        updateScoreboard();
+        messageElem.textContent = "It's a Draw!";
+        gameActive = false;
+      } else {
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        messageElem.textContent = `Player ${currentPlayer}'s turn`;
+      }
+    }
+
+    function checkWin() {
+      return winConditions.some(condition =>
+        condition.every(i => boardState[i] === currentPlayer)
+      );
+    }
+
+    function updateScoreboard() {
+      scoreboard.textContent = `Player X: ${scores.X} | Player O: ${scores.O} | Draws: ${scores.draws}`;
+    }
+
+    function restartGame() {
+      boardState = ['', '', '', '', '', '', '', '', ''];
+      currentPlayer = 'X';
+      gameActive = true;
+      messageElem.textContent = `Player ${currentPlayer}'s turn`;
+      createBoard();
+    }
+
+    restartButton.addEventListener('click', restartGame);
+
+    // Initialize game
+    createBoard();
+    messageElem.textContent = `Player ${currentPlayer}'s turn`;
+
+  </script>
+</body>
+</html>
